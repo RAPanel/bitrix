@@ -15,29 +15,6 @@ class DefaultController extends RController
     public $adminNotify = 0;
     public $email = 'error@rere-hosting.ru';
 
-    public function actionUpdate()
-    {
-        $criteria = new CDbCriteria();
-        $criteria->compare('t.module_id', Module::get('product'));
-        $criteria->with[]='rExternal_id';
-        $dataProvider = new CActiveDataProvider('Page', compact('criteria'));
-        $list = new CDataProviderIterator($dataProvider, 100);
-        foreach($list as $row) if($row->external_id)
-            ImportModel::addId($row->id, $row->external_id);
-
-        $criteria = new CDbCriteria();
-        $dataProvider = new CActiveDataProvider('Character', compact('criteria'));
-        $list = new CDataProviderIterator($dataProvider, 100);
-        foreach($list as $row) if($row->external_id)
-            ImportModel::addId($row->id, $row->external_id, 'character');
-
-        $criteria = new CDbCriteria();
-        $dataProvider = new CActiveDataProvider('Price', compact('criteria'));
-        $list = new CDataProviderIterator($dataProvider, 100);
-        foreach($list as $row) if($row->external_id)
-            ImportModel::addId($row->id, $row->external_id, 'price_type');
-    }
-
     public function actionIndex($type = null, $mode = null, $filename = null, $dir = false)
     {
         if (empty($_GET) || !count($_GET)) {
