@@ -95,7 +95,7 @@ class OrderXml extends Order
             $items = $document->addChild('Товары');
             foreach ($row->items_info as $val):
                 $price = $this->formatPrice($val['price']);
-                $type = Yii::app()->db->createCommand('SELECT `name` from price_type WHERE external_id=:id')->queryScalar(array('id' => $val['priceType']));
+                $type = Yii::app()->db->createCommand('SELECT `name` from price_type WHERE id=:id')->queryScalar(array('id' => ImportModel::getId($val['priceType'])));
                 $priceType[$type] = $type;
                 $item = $items->addChild('Товар');
                 $item->addChild('Ид', $val['external_id']);
