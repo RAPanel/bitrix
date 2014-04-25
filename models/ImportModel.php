@@ -182,7 +182,7 @@ class ImportModel
             if (Yii::app()->db->createCommand($sql)->queryScalar(compact('pageId', 'filename'))) return false;
             $target = Yii::getPathOfAlias('webroot.data._tmp') . DIRECTORY_SEPARATOR . $filename;
             if (file_exists($target)) $result = true;
-            else $result = Yii::app()->imageConverter->convert($file, $target, '_tmp');
+            else $result = Yii::app()->imageConverter->convert($file, $target, 'big');
             if ($result) {
                 $size = getimagesize($target);
                 $sql = 'SELECT `id` FROM `photo` WHERE `page_id`=:pageId AND `num`=1';
