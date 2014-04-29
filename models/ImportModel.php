@@ -50,10 +50,9 @@ class ImportModel
 
     public static function getPage($name, $value)
     {
-        $sql = 'SELECT `page_id` FROM `character_varchar` WHERE `character_id`=:id AND `lang_id`=:lang AND `value`=:value';
+        $sql = 'SELECT `id` FROM `character_varchar` cv JOIN `page` ON(`id`=`page_id`) WHERE `character_id`=:id AND `value`=:value';
         $params = array(
             'id' => Characters::getIdByUrl($name),
-            'lang' => Yii::app()->language,
             'value' => $value,
         );
         return Yii::app()->db->createCommand($sql)->queryScalar($params);
@@ -87,14 +86,16 @@ class ImportModel
         if (!$data['name']) return false;
         $model = new Page();
         $model->module_id = Module::get($type);
-        $model->forceCharacters = true;
         $model->parent_id = $parent_id ? $parent_id : $model->findRoot()->id;
         $model->is_category = $category;
+        $model->getCharacters();
         $model->setAttributes(self::readyProduct($data), false);
-        $model->setAttributes(self::readyProduct($data));
         if ($model->parent_id && $model->save(false)) {
             self::addId($model->id, $data['external_id'], $model->tableName());
             self::newPhoto($data['image'], $model->id);
+        } else {
+            CVarDumper::dump($model->errors, 10, 1);
+            die;
         }
         return $model->id;
     }
@@ -103,13 +104,13 @@ class ImportModel
     {
         $model = Page::model()->findByPk($id);
         if (!$model) return self::newPage(self::$module_name, '0', $data);
-        if ($lastMod && $model->lastmod > $lastMod) return true;
-        $model->forceCharacters = true;
+//        if ($lastMod && $model->lastmod > $lastMod) return true;
+        $model->getCharacters();
         self::newPhoto($data['image'], $model->id);
         $model->setAttributes(self::readyProduct($data), false);
-        $model->setAttributes(self::readyProduct($data));
-        $result = $model->save(false);
-        return $result;
+        return $model->save(false);
+//        if(!Page::model()->findByPk($model->id)->name) die('Нет наименования');
+        return $model->save(false);
     }
 
     public static function newCharacter($data)
@@ -188,12 +189,12 @@ class ImportModel
                 $sql = 'SELECT `id` FROM `photo` WHERE `page_id`=:pageId AND `num`=1';
                 $data = array(array(
                     'id' => Yii::app()->db->createCommand($sql)->queryScalar(compact('pageId')),
-                    'parent_id' => $pageId,
+                    'page_id' => $pageId,
                     'name' => $filename,
                     'width' => $size[0],
                     'height' => $size[1],
                     'cropParams' => 'N;',
-                    'order' => '1',
+                    'num' => '1',
                 ));
                 @unlink($file);
                 return DAO::execute('photo', $data, array('page_id', 'name', 'width', 'height'));
@@ -211,8 +212,9 @@ class ImportModel
                 $val = null;
             } elseif ($key == 'propValue') {
                 $c = Characters::getAttributesByModule(Module::get(self::$module_name));
-                foreach ($val as $row)
+                foreach ($val as $row){
                     $data[$c[self::getId($row['external_id'])]] = $row['value'];
+                }
             } elseif ($key == 'likeItem') {
                 $result = CHtml::listData($val, 'external_id', 'external_id');
                 $sql = 'SELECT GROUP_CONCAT(`id`) FROM `exchange_1c` WHERE `external_id` IN ("' . implode('","', $result) . '")';
@@ -234,7 +236,11 @@ class ImportModel
         switch ($type):
             case 'item':
                 $sql = 'DELETE FROM `page` WHERE `module_id`=:module_id AND `is_category`=0 AND `lastmod` < FROM_UNIXTIME(' . $time . ')';
-                return Yii::app()->db->createCommand($sql)->execute(array('module_id' => Module::get(self::$module_name)));
+                Yii::app()->db->createCommand($sql)->execute(array('module_id' => Module::get(self::$module_name)));
+                $sql = 'DELETE e FROM `exchange_1c` e LEFT OUTER JOIN `character`c ON(c.id=e.id) WHERE e.type="character" AND ISNULL(c.id)';
+                Yii::app()->db->createCommand($sql)->execute();
+                $sql = 'DELETE e FROM `exchange_1c` e LEFT OUTER JOIN page p ON(p.id=e.id) WHERE e.type="page"  AND ISNULL(p.id)';
+                return Yii::app()->db->createCommand($sql)->execute();
             case 'offer':
                 $sql = 'DELETE FROM `' . Price::getTable() . '` WHERE `lastmod` < FROM_UNIXTIME(' . $time . ')';
                 return Yii::app()->db->createCommand($sql)->execute();

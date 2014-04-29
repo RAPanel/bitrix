@@ -4,7 +4,7 @@
  * @author ReRe Design studio
  * @email webmaster@rere-design.ru
  */
-class DefaultController extends RController
+class DefaultController extends CController
 {
     protected $_result = array();
     protected $fileLimit = 2000000;
@@ -14,6 +14,18 @@ class DefaultController extends RController
     public $status = array();
     public $adminNotify = 0;
     public $email = 'error@rere-hosting.ru';
+
+    public function actionPerm($type = null, $mode = null, $filename = null, $dir = false)
+    {
+        Yii::app()->params['thisCity'] = 1;
+        $this->actionIndex($type, $mode, $filename, $dir);
+    }
+
+    public function actionIzhevsk($type = null, $mode = null, $filename = null, $dir = false)
+    {
+        Yii::app()->params['thisCity'] = 2;
+        $this->actionIndex($type, $mode, $filename, $dir);
+    }
 
     public function actionIndex($type = null, $mode = null, $filename = null, $dir = false)
     {
@@ -90,7 +102,7 @@ class DefaultController extends RController
 
                 $this->parseXml($dir . $filename);
 
-//                Yii::app()->user->setState(Yii::app()->request->requestUri, null);
+                Yii::app()->user->setState(Yii::app()->request->requestUri, null);
                 $this->result('success');
                 break;
 
