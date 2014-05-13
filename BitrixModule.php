@@ -1,13 +1,16 @@
 <?php
+
 /**
  * @author ReRe Design studio
  * @email webmaster@rere-design.ru
  */
+class BitrixModule extends CWebModule
+{
+    public $config = array();
 
-class BitrixModule extends CWebModule {
     public function init()
     {
-        $this->fixPhpAuth();  // Add RewriteRule .* - [E=REMOTE_USER:%{HTTP:Authorization},L] in .htaccess
+        $this->fixPhpAuth(); // Add RewriteRule .* - [E=REMOTE_USER:%{HTTP:Authorization},L] in .htaccess
 
         YiiBase::setPathOfAlias('bitrix', YiiBase::getPathOfAlias('application.modules.bitrix'));
 
@@ -15,17 +18,24 @@ class BitrixModule extends CWebModule {
             'bitrix.models.*',
             'bitrix.controllers.*',
         );
-        Yii::app()->errorHandler->errorAction = $this->id.'/default/error';
+        Yii::app()->errorHandler->errorAction = $this->id . '/default/error';
         Yii::app()->log->routes['web']->enabled = false;
         $this->setImport($imports);
         parent::init();
+    }
+
+    public function beforeControllerAction($controller, $action)
+    {
+        foreach ($this->config as $key => $value)
+            $controller->$key = $value;
+        return parent::beforeControllerAction($controller,$action);
     }
 
     public function fixPhpAuth()
     {
         $remote_user = $_SERVER["REMOTE_USER"]
             ? $_SERVER["REMOTE_USER"] : $_SERVER["REDIRECT_REMOTE_USER"];
-        $strTmp = base64_decode(substr($remote_user,6));
+        $strTmp = base64_decode(substr($remote_user, 6));
         if ($strTmp)
             list($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW']) = explode(':', $strTmp);
     }

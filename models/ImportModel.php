@@ -8,8 +8,7 @@
  */
 class ImportModel
 {
-    static $i = 0;
-    static $module_name = 'product';
+    static $module_name;
 
     public static function createElement($data, $type, $parent_id = false, $lastMod = false, $clear = false)
     {
@@ -94,8 +93,9 @@ class ImportModel
             self::addId($model->id, $data['external_id'], $model->tableName());
             self::newPhoto($data['image'], $model->id);
         } else {
-            CVarDumper::dump($model->errors, 10, 1);
-            die;
+            if (!$model->parent_id) echo 'Not found parent in ' . $model->module_id;
+            else CVarDumper::dump($model->errors);
+            Yii::app()->end();
         }
         return $model->id;
     }
@@ -104,12 +104,12 @@ class ImportModel
     {
         $model = Page::model()->findByPk($id);
         if (!$model) return self::newPage(self::$module_name, '0', $data);
-//        if ($lastMod && $model->lastmod > $lastMod) return true;
+        if ($lastMod && $model->lastmod > $lastMod) return true;
         $model->getCharacters();
         self::newPhoto($data['image'], $model->id);
         $model->setAttributes(self::readyProduct($data), false);
         return $model->save(false);
-//        if(!Page::model()->findByPk($model->id)->name) die('Нет наименования');
+        if(!Page::model()->findByPk($model->id)->name) die('Нет наименования');
         return $model->save(false);
     }
 
@@ -209,10 +209,11 @@ class ImportModel
                 $val = CHtml::tag('p', array(), nl2br(trim($val)));
             } elseif ($key == 'group') {
                 $data['parent_id'] = self::getId($val['external_id']);
+                if (!$data['parent_id']) unset($data['parent_id']);
                 $val = null;
             } elseif ($key == 'propValue') {
                 $c = Characters::getAttributesByModule(Module::get(self::$module_name));
-                foreach ($val as $row){
+                foreach ($val as $row) {
                     $data[$c[self::getId($row['external_id'])]] = $row['value'];
                 }
             } elseif ($key == 'likeItem') {

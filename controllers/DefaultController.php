@@ -6,14 +6,21 @@
  */
 class DefaultController extends CController
 {
-    protected $_result = array();
-    protected $fileLimit = 2000000;
-    protected $zip = false;
-    protected $dir = '_upload1C';
-    public $timestamp = 0;
-    public $status = array();
+    public $zip = false;
     public $adminNotify = 0;
+    public $dir = '_upload1C';
+    public $fileLimit = 2000000;
+    public $moduleUrl = 'product';
     public $email = 'error@rere-hosting.ru';
+
+    private $_timestamp = 0;
+    private $_result = array();
+    private $_status = array();
+
+    public function init()
+    {
+        header('Content-type: text/plain; charset=windows-1251');
+    }
 
     public function actionPerm($type = null, $mode = null, $filename = null, $dir = false)
     {
@@ -29,6 +36,8 @@ class DefaultController extends CController
 
     public function actionIndex($type = null, $mode = null, $filename = null, $dir = false)
     {
+
+        ImportModel::$module_name = $this->moduleUrl;
         if (empty($_GET) || !count($_GET)) {
             $url = explode('?', $_SERVER['REQUEST_URI']);
             $url = end($url);
@@ -53,6 +62,8 @@ class DefaultController extends CController
             // Вход, отдаем настройки
             case 'init':
                 if (Yii::app()->user->isGuest && !$this->register()) break;
+
+                CFileHelper::removeDirectory($this->baseDir);
 
                 if (!Yii::app()->user->hasState('dir')) {
                     $dir = $this->baseDir . date('Y-m-d_H-i_') . Yii::app()->user->id . DIRECTORY_SEPARATOR;
@@ -94,7 +105,7 @@ class DefaultController extends CController
                     $this->result('success');
                     break;
                 }
-                $this->timestamp = filemtime($dir . $filename);
+                $this->_timestamp = filemtime($dir . $filename);
                 if (!$xml = new XMLReader())
                     $this->result(array('failure', 'can`t create xml reader'), 0);
                 if (!$xml->open($dir . $filename))
@@ -117,14 +128,13 @@ class DefaultController extends CController
             case 'success':
                 if (Yii::app()->user->isGuest && !$this->register()) break;
                 ImportModel::clearBase(null, 'photo');
-                if ($type == 'catalog') $this->deleteDirectory($this->getBaseDir(), Yii::app()->user->getState('dir'));
                 $this->result('success');
 //                mail($this->email, '1C FINISHED ' . $type, "REQUEST: " . print_r($_REQUEST, 1) . "\r\nSERVER: " . print_r($_SERVER, 1));
                 break;
 
             // Если ничего не найдено пишем ошибку
             default:
-                if (!$type && current($this->status) > 0) {
+                if (!$type && current($this->_status) > 0) {
                     sleep(5);
                     $this->refresh();
                 } else {
@@ -141,7 +151,7 @@ class DefaultController extends CController
 
     public function parseXml($path)
     {
-        $this->status = Yii::app()->user->getState(Yii::app()->request->requestUri);
+        $this->_status = Yii::app()->user->getState(Yii::app()->request->requestUri);
         $xml = simplexml_load_file($path);
 
         if (isset($xml->Классификатор)) {
@@ -152,37 +162,37 @@ class DefaultController extends CController
         if (isset($xml->Каталог)) {
             $this->addData($xml->Каталог->Товары->Товар, 'item');
             if ($xml->Каталог['СодержитТолькоИзменения'] == 'false')
-                ImportModel::clearBase($this->timestamp, 'item');
+                ImportModel::clearBase($this->_timestamp, 'item');
         }
 
         if (isset($xml->ПакетПредложений)) {
             $this->addData($xml->ПакетПредложений->ТипыЦен->ТипЦены, 'priceType');
             $this->addData($xml->ПакетПредложений->Предложения->Предложение, 'offer');
             if ($xml->ПакетПредложений['СодержитТолькоИзменения'] == 'false')
-                ImportModel::clearBase($this->timestamp, 'offer');
+                ImportModel::clearBase($this->_timestamp, 'offer');
         }
     }
 
     public function addData($data, $type)
     {
         $i = 0;
-        $count = $this->status['count'][$type];
-        if (!$count) $this->status['count'][$type] = $count = count($data);
-        if ($this->status[$type] == $count) return;
+        $count = $this->_status['count'][$type];
+        if (!$count) $this->_status['count'][$type] = $count = count($data);
+        if ($this->_status[$type] == $count) return;
         echo "progress\r\n";
         foreach ($data as $row) {
-            if ($this->status[$type] - 1 >= $i++) continue;
+            if ($this->_status[$type] - 1 >= $i++) continue;
             $row = $this->trimAll($row);
-            ImportModel::createElement($row, $type, false, $this->timestamp);
+            ImportModel::createElement($row, $type, false, $this->_timestamp);
 
-            $this->status[$type] = $i;
-            Yii::app()->user->setState(Yii::app()->request->requestUri, $this->status);
+            $this->_status[$type] = $i;
+            Yii::app()->user->setState(Yii::app()->request->requestUri, $this->_status);
             if ($this->life)
-                $this->result(array('Выполнено ' . $type . " {$this->status[$type]}/{$count} " . round(100 * $this->status[$type] / $count) . '%', '<script>location.reload()</script>'), false);
+                $this->result(array('Success ' . $type . " {$this->_status[$type]}/{$count} " . round(100 * $this->_status[$type] / $count) . '%', '<script>location.reload()</script>'), false);
 
             if ($i % 10 == 0) gc_collect_cycles();
         }
-        $this->result(array('Выполнено ' . $type . " {$this->status[$type]}/{$count} " . round(100 * $this->status[$type] / $count) . '%', '<script>location.reload()</script>'), false);
+        $this->result(array('Success ' . $type . " {$this->_status[$type]}/{$count} " . round(100 * $this->_status[$type] / $count) . '%', '<script>location.reload()</script>'), false);
     }
 
     public $alias = array(
@@ -252,7 +262,7 @@ class DefaultController extends CController
 
     public function register()
     {
-        $model = new LoginForm();
+        $model = new User('login');
         $model->attributes = array(
             'email' => $_SERVER['PHP_AUTH_USER'],
             'password' => $_SERVER['PHP_AUTH_PW'],
@@ -262,7 +272,6 @@ class DefaultController extends CController
 
     public function result($data, $return = true)
     {
-//        header('Content-type: text/plain');
         $data = (array)$data;
         $this->_result = CMap::mergeArray($this->_result, $data);
         if (!$return) {
@@ -309,16 +318,6 @@ class DefaultController extends CController
     public function getBaseDir()
     {
         return Yii::getPathOfAlias('webroot.data.' . $this->dir) . DIRECTORY_SEPARATOR;
-    }
-
-    public function deleteDirectory($dir, $execute = '')
-    {
-        $files = array_diff(scandir($dir), array('.', '..'));
-        foreach ($files as $file) {
-            if ($this->life) $this->result('progress', false);
-            (is_dir($dir . $file)) ? $this->deleteDirectory($dir . $file . DIRECTORY_SEPARATOR) : unlink($dir . $file);
-        }
-        if (strpos($execute, $dir) === false) return rmdir($dir);
     }
 
     public function actionError()
