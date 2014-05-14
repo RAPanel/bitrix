@@ -43,6 +43,8 @@ class ImportModel
                 return false;
             case 'offer':
                 return self::offer($data, $lastMod);
+            case 'order':
+                return self::order($data, $lastMod);
         endswitch;
         return false;
     }
@@ -173,6 +175,63 @@ class ImportModel
         $update = array('value', 'count', 'lastmod' => 'NOW()');
 
         return DAO::execute(Price::getTable(), $priceData, $update);
+    }
+
+    public static function order($data, $lastmod = false)
+    {
+        if (self::getId($data['external_id'])) return;
+        $userData = $data['user'][0];
+        $user = User::model()->findAllByAttributes(array('email' => $userData['email']));
+        if (is_null($user)) {
+            $criteria = new CDbCriteria();
+            if ($data['user'][0]['inn'])
+                $criteria->with[] = 'rInn';
+            $criteria->compare('t.module_id', Module::get('company'));
+            $criteria->compare('rInn.value', $data['Контрагенты']['Контрагент']['ИНН']);
+            $company = Page::model()->find($criteria);
+            if (is_null($company)) {
+                echo "Company by inn #" . $data['Контрагенты']['Контрагент']['ИНН'] . " not found\r\n";
+                return;
+            }
+            $user = $company->user;
+        }
+
+        $items = array();
+
+        foreach ($data['item'] as $row) {
+            $page = Page::model()->findByPk(self::getId($row['external_id']));
+            if (is_null($page)) $items[$row['external_id']] = array(
+                'external_id' => $row['external_id'],
+                'name' => $row['name'],
+                'price' => $row['value'],
+                'quantity' => $row['count'],
+            );
+            else $items[$page->id] = array(
+                'id' => $page->id,
+                'external_id' => $row['external_id'],
+                'parent_id' => $page->parent->external_id,
+                'name' => $row['name'],
+                'href' => $page->href,
+                'image' => $page->photo ? $page->getIco('mini', 'link') : false,
+                'price' => $row['value'],
+                'count' => $page->count,
+                'quantity' => $row['count'],
+            );
+        }
+
+        if (count($items) == 0) {
+            echo "No items in order\r\n";
+            return;
+        }
+        $model = new Order();
+        $model->user_id = $user->id;
+        $model->total = $data['total'];
+        $model->items_info = $items;
+        if ($model->save()) {
+            self::addId($model->id, $data['external_id']);
+            CVarDumper::dump($model->attributes, 10, 1);
+        } else print_r($model->errors);
+        die;
     }
 
     public static function newPhoto($name, $pageId)

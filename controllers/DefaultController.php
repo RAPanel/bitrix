@@ -171,6 +171,10 @@ class DefaultController extends CController
             if ($xml->ПакетПредложений['СодержитТолькоИзменения'] == 'false')
                 ImportModel::clearBase($this->_timestamp, 'offer');
         }
+
+        if (isset($xml->Документ)) {
+            $this->addData($xml->Документ, 'order');
+        }
     }
 
     public function addData($data, $type)
@@ -210,6 +214,15 @@ class DefaultController extends CController
         'ЗначенияРеквизитов' => array(
             'ЗначениеРеквизита' => 'OtherValue',
         ),
+        'Контрагенты' => array(
+            'Контрагент' => 'user',
+        ),
+        'Товары' => array(
+            'Товар' => 'item',
+        ),
+        'ЛогинНаСайте' => 'email',
+        'ИНН' => 'inn',
+        'Сумма' => 'total',
         'Артикул' => 'art',
         'Описание' => 'content',
         'Картинка' => 'image',

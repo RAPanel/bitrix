@@ -163,6 +163,6 @@ class OrderXml extends Order
     {
         $int = str_replace(',', '.', $int);
         $int = preg_replace("/[^0-9.]/", '', $int);
-        return number_format($int, 2, '.', '');
+        return number_format((int)$int, 2, '.', '');
     }
 }
