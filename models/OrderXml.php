@@ -36,7 +36,8 @@ class OrderXml extends Order
         $this->xml->addAttribute('ДатаФормирования', date('Y-m-d'));
         foreach ($model as $row):
             if (!is_array($row->items_info)) continue;
-            if($row->contact_info['region'] && $row->contact_info['region'] != Yii::app()->user->getRegionId()) continue;
+            if ($row->status_id == 9) continue;
+            if($row->contact_info['region'] && Yii::app()->user->getRegionId() && $row->contact_info['region'] != Yii::app()->user->getRegionId()) continue;
 
             $contacts = $row->contact_info;
             if (empty($contacts['inn'])) $contacts['inn'] = $this->default['inn'];
@@ -56,8 +57,8 @@ class OrderXml extends Order
             $document->addChild('Сумма', $row->total);
             $user = $document->addChild('Контрагенты')->addChild('Контрагент');
             $user->addChild('Ид', 'User' . $row->user_id);
-            $user->addChild('Наименование', $row->contact_info['username']);
-            $user->addChild('ПолноеНаименование', $row->contact_info['username']);
+            $user->addChild('Наименование', $row->contact_info['username']?$row->contact_info['username']:$row->contact_info['name']);
+            $user->addChild('ПолноеНаименование', $row->contact_info['username']?$row->contact_info['username']:$row->contact_info['name']);
             $user->addChild('ИНН', $row->contact_info['inn']);
             $user->addChild('Роль', 'Покупатель');
             if ($row->contact_info['type'])

@@ -181,7 +181,7 @@ class ImportModel
     {
         if (self::getId($data['external_id'])) return;
         $userData = $data['user'][0];
-        $user = User::model()->findAllByAttributes(array('email' => $userData['email']));
+        $user = User::model()->findByAttributes(array('email' => $userData['email']));
         if (is_null($user)) {
             $criteria = new CDbCriteria();
             if ($data['user'][0]['inn'])
@@ -199,7 +199,7 @@ class ImportModel
         $items = array();
 
         foreach ($data['item'] as $row) {
-            $page = Page::model()->findByPk(self::getId($row['external_id']));
+            $page = Product::model()->findByPk(self::getId($row['external_id']));
             if (is_null($page)) $items[$row['external_id']] = array(
                 'external_id' => $row['external_id'],
                 'name' => $row['name'],
@@ -224,14 +224,15 @@ class ImportModel
             return;
         }
         $model = new Order();
+        $model->status_id = 9;
+        $model->pay_status = 1;
         $model->user_id = $user->id;
         $model->total = $data['total'];
         $model->items_info = $items;
+        $model->contact_info = $userData;
         if ($model->save()) {
-            self::addId($model->id, $data['external_id']);
-            CVarDumper::dump($model->attributes, 10, 1);
+            self::addId($model->id, $data['external_id'], 'order');
         } else print_r($model->errors);
-        die;
     }
 
     public static function newPhoto($name, $pageId)
