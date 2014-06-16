@@ -85,9 +85,8 @@ class ImportModel
     public static function newPage($type, $category, $data, $parent_id = false)
     {
         if (!$data['name']) return false;
-        $model = new Page();
-        $model->module_id = Module::get($type);
-        $model->parent_id = $parent_id ? $parent_id : $model->findRoot()->id;
+        $model = new Page(Module::get($type));
+        if ($category || $parent_id) $model->parent_id = $parent_id ? $parent_id : $model->findRoot()->id;
         $model->is_category = $category;
         $model->getCharacters();
         $model->setAttributes(self::readyProduct($data), false);
@@ -95,7 +94,8 @@ class ImportModel
             self::addId($model->id, $data['external_id'], $model->tableName());
             self::newPhoto($data['image'], $model->id);
         } else {
-            if (!$model->parent_id) echo 'Not found parent in ' . $model->module_id;
+            echo 'error';
+            if (!$model->parent_id) echo 'Not found item parent in ' . Module::get($model->module_id);
             else CVarDumper::dump($model->errors);
             Yii::app()->end();
         }
@@ -105,22 +105,24 @@ class ImportModel
     public static function editPage($id, $data, $lastMod)
     {
         $model = Page::model()->findByPk($id);
+        $model->forceCharacters = true;
         if (!$model) return self::newPage(self::$module_name, '0', $data);
         if ($lastMod && $model->lastmod > $lastMod) return true;
-        $model->getCharacters();
         self::newPhoto($data['image'], $model->id);
         $model->setAttributes(self::readyProduct($data), false);
         return $model->save(false);
-        if(!Page::model()->findByPk($model->id)->name) die('Нет наименования');
+        if (!Page::model()->findByPk($model->id)->name) die('Don`t have name');
         return $model->save(false);
     }
 
     public static function newCharacter($data)
     {
         $model = Character::model()->findByAttributes(array('name' => $data['name']));
-        if (!$model) $model = new Character();
+        if (!$model) {
+            $model = new Character();
+        }
         $model->setAttributes($data, false);
-        if (!$model->url) $model->url = Text::tagUrl($model->name) . '1c';
+        if ($model->isNewRecord) $model->url = substr(Text::tagUrl($model->name), 0, 20) . '1c' . ucfirst(uniqid());
         $model->type = 'varchar';
         $model->inputType = 'text';
         $model->position = 'additional';
@@ -239,16 +241,17 @@ class ImportModel
     {
         if ($name && (file_exists($file = Yii::app()->params['parseDir'] . $name) || file_exists($file = Yii::getPathOfAlias('webroot.data._upload1c.base') . DIRECTORY_SEPARATOR . $name)) && is_file($file)) {
             $filename = basename($file);
-            $sql = 'SELECT `id` FROM `photo` WHERE `page_id`=:pageId AND `name`=:filename';
+            $sql = 'SELECT `id` FROM `user_photo` WHERE `page_id`=:pageId AND `name`=:filename';
             if (Yii::app()->db->createCommand($sql)->queryScalar(compact('pageId', 'filename'))) return false;
             $target = Yii::getPathOfAlias('webroot.data._tmp') . DIRECTORY_SEPARATOR . $filename;
             if (file_exists($target)) $result = true;
             else $result = Yii::app()->imageConverter->convert($file, $target, 'big');
             if ($result) {
                 $size = getimagesize($target);
-                $sql = 'SELECT `id` FROM `photo` WHERE `page_id`=:pageId AND `num`=1';
+                $sql = 'SELECT `id` FROM `user_photo` WHERE `page_id`=:pageId AND `num`=1';
                 $data = array(array(
                     'id' => Yii::app()->db->createCommand($sql)->queryScalar(compact('pageId')),
+                    'user_id' => 1,
                     'page_id' => $pageId,
                     'name' => $filename,
                     'width' => $size[0],
@@ -257,7 +260,7 @@ class ImportModel
                     'num' => '1',
                 ));
                 @unlink($file);
-                return DAO::execute('photo', $data, array('page_id', 'name', 'width', 'height'));
+                return DAO::execute('user_photo', $data, array('page_id', 'name', 'width', 'height'));
             } else return false;
         } else return false;
     }
@@ -276,7 +279,7 @@ class ImportModel
                 foreach ($val as $row) {
                     $data[$c[self::getId($row['external_id'])]] = $row['value'];
                 }
-            } elseif ($key == 'likeItem') {
+            } elseif ($key == 'likeProduct') {
                 $result = CHtml::listData($val, 'external_id', 'external_id');
                 $sql = 'SELECT GROUP_CONCAT(`id`) FROM `exchange_1c` WHERE `external_id` IN ("' . implode('","', $result) . '")';
                 $val = Yii::app()->db->createCommand($sql)->queryScalar();
@@ -306,7 +309,7 @@ class ImportModel
                 $sql = 'DELETE FROM `' . Price::getTable() . '` WHERE `lastmod` < FROM_UNIXTIME(' . $time . ')';
                 return Yii::app()->db->createCommand($sql)->execute();
             case 'photo':
-                $photos = Yii::app()->db->createCommand('SELECT `name` FROM `photo`')->queryColumn();
+                $photos = Yii::app()->db->createCommand('SELECT `name` FROM `user_photo`')->queryColumn();
                 $dir = Yii::getPathOfAlias('webroot.data._tmp') . DIRECTORY_SEPARATOR;
                 $files = scandir($dir);
                 $remove = array_diff($files, $photos);

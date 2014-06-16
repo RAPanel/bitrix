@@ -4,6 +4,8 @@
  * @author ReRe Design studio
  * @email webmaster@rere-design.ru
  */
+error_reporting(1);
+
 class DefaultController extends CController
 {
     public $zip = false;
@@ -36,7 +38,6 @@ class DefaultController extends CController
 
     public function actionIndex($type = null, $mode = null, $filename = null, $dir = false)
     {
-
         ImportModel::$module_name = $this->moduleUrl;
         if (empty($_GET) || !count($_GET)) {
             $url = explode('?', $_SERVER['REQUEST_URI']);
@@ -65,10 +66,8 @@ class DefaultController extends CController
 
                 CFileHelper::removeDirectory($this->baseDir);
 
-                if (!Yii::app()->user->hasState('dir')) {
-                    $dir = $this->baseDir . date('Y-m-d_H-i_') . Yii::app()->user->id . DIRECTORY_SEPARATOR;
-                    Yii::app()->user->setState('dir', $dir);
-                }
+                $dir = $this->baseDir . date('Y-m-d_H-i_') . Yii::app()->user->id . DIRECTORY_SEPARATOR;
+                Yii::app()->user->setState('dir', $dir);
 
                 $this->result(array('zip=' . ($this->zip ? 'yes' : 'no'), 'file_limit=' . $this->fileLimit));
                 break;
@@ -209,7 +208,7 @@ class DefaultController extends CController
             'ЗначенияСвойства' => 'propValue',
         ),
         'Сопутствующие' => array(
-            'Сопутствующая' => 'likeItem',
+            'Сопутствующая' => 'likeProduct',
         ),
         'ЗначенияРеквизитов' => array(
             'ЗначениеРеквизита' => 'OtherValue',
@@ -314,13 +313,15 @@ class DefaultController extends CController
         return false;
     }
 
-    /*public function actionClearAll()
+    public function actionClearAll()
     {
-        if (Yii::app()->user->checkAccess('administrator')) {
-            $sql = 'DELETE FROM page WHERE module_id=8 AND (LEVEL>1 OR ISNULL(LEVEL));';
-            Yii::app()->db->createCommand($sql)->execute();
+        if (Yii::app()->user->checkAccess('webmaster')) {
+            $sql = 'DELETE FROM `page` WHERE module_id=:module AND (`level`>1 OR `level`=0)';
+            Yii::app()->db->createCommand($sql)->execute(array('module' => Module::get($this->moduleUrl)));
+            $sql = 'DELETE FROM `exchange_1c` WHERE `type`=:type)';
+            Yii::app()->db->createCommand($sql)->execute(array('type' => 'page'));
         }
-    }*/
+    }
 
     public function getLife()
     {
