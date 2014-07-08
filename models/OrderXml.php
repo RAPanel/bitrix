@@ -27,7 +27,7 @@ class OrderXml extends Order
     public function orders()
     {
         $model = $this->findAll(array(
-            'condition' => 't.status_id NOT IN(10,999) and t.id>0',
+            'condition' => 't.status_id NOT IN(9,10,999) and t.id>0',
             'order' => 't.id desc',
         ));
 
@@ -36,12 +36,13 @@ class OrderXml extends Order
         $this->xml->addAttribute('ДатаФормирования', date('Y-m-d'));
         foreach ($model as $row):
             if (!is_array($row->items_info)) continue;
-            if ($row->status_id == 9) continue;
-            if($row->contact_info['region'] && Yii::app()->user->getRegionId() && $row->contact_info['region'] != Yii::app()->user->getRegionId()) continue;
+            /*if($row->contact_info['region'] &&
+                Yii::app()->user->getRegionId() &&
+                $row->contact_info['region'] != Yii::app()->user->getRegionId()) continue;*/
 
             $contacts = $row->contact_info;
             if (empty($contacts['inn'])) $contacts['inn'] = $this->default['inn'];
-            if (empty($row->user_id)) $row->user_id = 'Order' . $row->id;
+//            if (empty($row->user_id)) $row->user_id = 'Order' . $row->id;
             $row->contact_info = $contacts;
 
             $priceType = array();
@@ -57,8 +58,10 @@ class OrderXml extends Order
             $document->addChild('Сумма', $row->total);
             $user = $document->addChild('Контрагенты')->addChild('Контрагент');
             $user->addChild('Ид', 'User' . $row->user_id);
+            $user->addChild('ЛогинНаСайте', $row->user->email);
             $user->addChild('Наименование', $row->contact_info['username']?$row->contact_info['username']:$row->contact_info['name']);
             $user->addChild('ПолноеНаименование', $row->contact_info['username']?$row->contact_info['username']:$row->contact_info['name']);
+            $row->contact_info = CMap::mergeArray($row->contact_info, $row->user->company->characters);
             $user->addChild('ИНН', $row->contact_info['inn']);
             $user->addChild('Роль', 'Покупатель');
             if ($row->contact_info['type'])
@@ -93,6 +96,7 @@ class OrderXml extends Order
                      ) as $key => $val)
                 if ($row->contact_info[$key]) $this->addData($contact, $val, $row->contact_info[$key], 'Контакт', 'Тип');
             $user->addChild('Роль', 'Покупатель');
+            $user->addChild('ИдентификацияПоИНН', true);
             $items = $document->addChild('Товары');
             foreach ($row->items_info as $val):
                 $price = $this->formatPrice($val['price']);
@@ -164,6 +168,6 @@ class OrderXml extends Order
     {
         $int = str_replace(',', '.', $int);
         $int = preg_replace("/[^0-9.]/", '', $int);
-        return number_format((int)$int, 2, '.', '');
+        return number_format((float)$int, 2, '.', '');
     }
 }
