@@ -6,10 +6,8 @@
  * MailTo: semyonchick@gmail.com
  * DateTime: 28.05.13 15:30
  */
-class ImportModel
+class RImportModel extends BaseImportModel
 {
-    static $module_name;
-
     public static function createElement($data, $type, $parent_id = false, $lastMod = false, $clear = false)
     {
         if (count($data)) switch ($type):
@@ -41,45 +39,8 @@ class ImportModel
                 if (!self::getId($data['external_id']))
                     return self::newPriceType($data);
                 return false;
-            case 'offer':
-                return self::offer($data, $lastMod);
-            case 'order':
-                return self::order($data, $lastMod);
         endswitch;
-        return false;
-    }
-
-    public static function getPage($name, $value)
-    {
-        $sql = 'SELECT `id` FROM `character_varchar` cv JOIN `page` ON(`id`=`page_id`) WHERE `character_id`=:id AND `value`=:value';
-        $params = array(
-            'id' => Characters::getIdByUrl($name),
-            'value' => $value,
-        );
-        return Yii::app()->db->createCommand($sql)->queryScalar($params);
-    }
-
-    public static function getId($value)
-    {
-        $sql = 'SELECT `id` FROM `exchange_1c` WHERE `external_id`=:value';
-        return Yii::app()->db->createCommand($sql)->queryScalar(compact('value'));
-    }
-
-    public static function addId($id, $external_id, $type = 'page')
-    {
-        return DAO::execute('exchange_1c', array(compact('id', 'type', 'external_id')), array('id', 'type'));
-    }
-
-    public static function movePage($id, $parent_id)
-    {
-        $sql = 'SELECT `id` FROM `page` WHERE `id`=:id AND `parent_id`=:parent_id';
-        $params = compact('id', 'parent_id');
-        if (Yii::app()->db->createCommand($sql)->execute($params) == 0) {
-            $page = Page::model()->findByPk($id);
-            $page->parent_id = $parent_id;
-            $page->save();
-        }
-        return true;
+        return parent::createElement($data, $type, $lastMod);
     }
 
     public static function newPage($type, $category, $data, $parent_id = false)
@@ -111,8 +72,6 @@ class ImportModel
         self::newPhoto($data['image'], $model->id);
         $model->setAttributes(self::readyProduct($data), false);
         return $model->save(false);
-        if (!Page::model()->findByPk($model->id)->name) die('Don`t have name');
-        return $model->save(false);
     }
 
     public static function newCharacter($data)
@@ -130,6 +89,7 @@ class ImportModel
         if ($model->save(false))
             self::addId($model->id, $data['external_id'], $model->tableName());
 
+        /** @var Module $module */
         $module = Module::model()->findByPk(Module::get(self::$module_name));
         $config = $module->getConfig();
         $config['characters'][] = $model->url;
@@ -201,6 +161,7 @@ class ImportModel
         $items = array();
 
         foreach ($data['item'] as $row) {
+            /** @var PageBase $page */
             $page = Product::model()->findByPk(self::getId($row['external_id']));
             if (is_null($page)) $items[$row['external_id']] = array(
                 'external_id' => $row['external_id'],

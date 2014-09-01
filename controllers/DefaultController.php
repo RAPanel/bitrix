@@ -8,15 +8,86 @@ error_reporting(1);
 
 class DefaultController extends CController
 {
+    /** @var bool */
     public $zip = false;
-    public $adminNotify = 0;
+    /** @var bool */
+    public $adminNotify = false;
+    /** @var string */
     public $dir = '_upload1C';
+    /** @var int */
     public $fileLimit = 2000000;
+    /** @var string */
     public $moduleUrl = 'product';
+    /** @var string */
     public $email = 'error@rere-hosting.ru';
+    /** @var array */
+    /** @var RExportModel */
+    public $exportClass = 'RExportModel';
+    public $exportSearch = array(
+        'sale' => 'sale',
+    );
+    /** @var RImportModel */
+    public $importClass = 'RImportModel';
+    /** @var array */
+    public $importSearch = array(
+        'Классификатор.Группы.Группа' => 'group',
+        'Классификатор.Свойства.Свойство' => 'prop',
+        'Каталог.Товары.Товар' => 'item',
+        'ПакетПредложений.ТипыЦен.ТипЦены' => 'priceType',
+        'ПакетПредложений.Предложения.Предложение' => 'offer',
+    );
+    /** @var array */
+    public $alias = array(
+        'Ид' => 'external_id',
+        'Наименование' => 'name',
+        'Группы' => array(
+            'Группа' => 'group',
+        ),
+        'ЗначенияСвойств' => array(
+            'ЗначенияСвойства' => 'propValue',
+        ),
+        'Сопутствующие' => array(
+            'Сопутствующая' => 'likeProduct',
+        ),
+        'ЗначенияРеквизитов' => array(
+            'ЗначениеРеквизита' => 'OtherValue',
+        ),
+        'Контрагенты' => array(
+            'Контрагент' => 'user',
+        ),
+        'Товары' => array(
+            'Товар' => 'item',
+        ),
+        'ЛогинНаСайте' => 'email',
+        'ИНН' => 'inn',
+        'Сумма' => 'total',
+        'Артикул' => 'art',
+        'Описание' => 'content',
+        'Картинка' => 'image',
+        'СтавкиНалогов' => array(
+            'СтавкаНалога' => 'tax',
+        ),
+        'Цены' => array(
+            'Цена' => 'price',
+        ),
+        'Значение' => 'value',
+        'БазоваяЕдиница' => 'typeName',
+        'Валюта' => 'currency',
+        'Налог' => 'tax',
+        'УчтеноВСумме' => 'taxInclude',
+        'ИдТипаЦены' => 'external_id',
+        'ЦенаЗаЕдиницу' => 'value',
+        'Представление' => 'text',
+        'Единица' => 'unit',
+        'Коэффициент' => 'ratio',
+        'Количество' => 'count',
+    );
 
+    /** @var int */
     private $_timestamp = 0;
+    /** @var array */
     private $_result = array();
+    /** @var array */
     private $_status = array();
 
     public function init()
@@ -24,21 +95,10 @@ class DefaultController extends CController
         header('Content-type: text/plain; charset=windows-1251');
     }
 
-    public function actionPerm($type = null, $mode = null, $filename = null, $dir = false)
-    {
-        Yii::app()->params['thisCity'] = 1;
-        $this->actionIndex($type, $mode, $filename, $dir);
-    }
-
-    public function actionIzhevsk($type = null, $mode = null, $filename = null, $dir = false)
-    {
-        Yii::app()->params['thisCity'] = 2;
-        $this->actionIndex($type, $mode, $filename, $dir);
-    }
-
     public function actionIndex($type = null, $mode = null, $filename = null, $dir = false)
     {
-        ImportModel::$module_name = $this->moduleUrl;
+        $IM = $this->importClass;
+        $IM::$module_name = $this->moduleUrl;
         if (empty($_GET) || !count($_GET)) {
             $url = explode('?', $_SERVER['REQUEST_URI']);
             $url = end($url);
@@ -119,14 +179,14 @@ class DefaultController extends CController
             // Отдаем файл с заказами
             case 'query':
                 if (Yii::app()->user->isGuest && !$this->register()) break;
-                if ($type == 'sale') OrderXml::printThis();
-                if ($type == 'users') OrderXml::printThis();
+                $EM = $this->exportClass;
+                if (method_exists($EM, $type)) $EM::$type();
                 break;
 
             // Возвращаем такой же ответ
             case 'success':
                 if (Yii::app()->user->isGuest && !$this->register()) break;
-                ImportModel::clearBase(null, 'photo');
+                $IM::clearBase(null, 'photo');
                 $this->result('success');
 //                mail($this->email, '1C FINISHED ' . $type, "REQUEST: " . print_r($_REQUEST, 1) . "\r\nSERVER: " . print_r($_SERVER, 1));
                 break;
@@ -150,34 +210,33 @@ class DefaultController extends CController
 
     public function parseXml($path)
     {
+        $IM = $this->importClass;
         $this->_status = Yii::app()->user->getState(Yii::app()->request->requestUri);
         $xml = simplexml_load_file($path);
 
-        if (isset($xml->Классификатор)) {
-            $this->addData($xml->Классификатор->Группы->Группа, 'group');
-            $this->addData($xml->Классификатор->Свойства->Свойство, 'prop');
+        foreach ($this->importSearch as $key => $value) {
+            $list = explode('.', $key);
+            $data = $xml;
+            $tagExist = true;
+            foreach ($list as $row) if ($tagExist && isset($data->{$row})) {
+                $data = $data->{$row};
+                $tagExist = true;
+            } else $tagExist = false;
+            if ($tagExist) $this->addData($data, $value);
         }
 
-        if (isset($xml->Каталог)) {
-            $this->addData($xml->Каталог->Товары->Товар, 'item');
+        if (isset($xml->Каталог))
             if ($xml->Каталог['СодержитТолькоИзменения'] == 'false')
-                ImportModel::clearBase($this->_timestamp, 'item');
-        }
+                $IM::clearBase($this->_timestamp, 'item');
 
-        if (isset($xml->ПакетПредложений)) {
-            $this->addData($xml->ПакетПредложений->ТипыЦен->ТипЦены, 'priceType');
-            $this->addData($xml->ПакетПредложений->Предложения->Предложение, 'offer');
+        if (isset($xml->ПакетПредложений))
             if ($xml->ПакетПредложений['СодержитТолькоИзменения'] == 'false')
-                ImportModel::clearBase($this->_timestamp, 'offer');
-        }
-
-        if (isset($xml->Документ)) {
-            $this->addData($xml->Документ, 'order');
-        }
+                $IM::clearBase($this->_timestamp, 'offer');
     }
 
     public function addData($data, $type)
     {
+        $IM = $this->importClass;
         $i = 0;
         $count = $this->_status['count'][$type];
         if (!$count) $this->_status['count'][$type] = $count = count($data);
@@ -186,7 +245,7 @@ class DefaultController extends CController
         foreach ($data as $row) {
             if ($this->_status[$type] - 1 >= $i++) continue;
             $row = $this->trimAll($row);
-            ImportModel::createElement($row, $type, false, $this->_timestamp);
+            $IM::createElement($row, $type, false, $this->_timestamp);
 
             $this->_status[$type] = $i;
             Yii::app()->user->setState(Yii::app()->request->requestUri, $this->_status);
@@ -197,52 +256,6 @@ class DefaultController extends CController
         }
         $this->result(array('Success ' . $type . " {$this->_status[$type]}/{$count} " . round(100 * $this->_status[$type] / $count) . '%', '<script>location.reload()</script>'), false);
     }
-
-    public $alias = array(
-        'Ид' => 'external_id',
-        'Наименование' => 'name',
-        'Группы' => array(
-            'Группа' => 'group',
-        ),
-        'ЗначенияСвойств' => array(
-            'ЗначенияСвойства' => 'propValue',
-        ),
-        'Сопутствующие' => array(
-            'Сопутствующая' => 'likeProduct',
-        ),
-        'ЗначенияРеквизитов' => array(
-            'ЗначениеРеквизита' => 'OtherValue',
-        ),
-        'Контрагенты' => array(
-            'Контрагент' => 'user',
-        ),
-        'Товары' => array(
-            'Товар' => 'item',
-        ),
-        'ЛогинНаСайте' => 'email',
-        'ИНН' => 'inn',
-        'Сумма' => 'total',
-        'Артикул' => 'art',
-        'Описание' => 'content',
-        'Картинка' => 'image',
-        'СтавкиНалогов' => array(
-            'СтавкаНалога' => 'tax',
-        ),
-        'Цены' => array(
-            'Цена' => 'price',
-        ),
-        'Значение' => 'value',
-        'БазоваяЕдиница' => 'typeName',
-        'Валюта' => 'currency',
-        'Налог' => 'tax',
-        'УчтеноВСумме' => 'taxInclude',
-        'ИдТипаЦены' => 'external_id',
-        'ЦенаЗаЕдиницу' => 'value',
-        'Представление' => 'text',
-        'Единица' => 'unit',
-        'Коэффициент' => 'ratio',
-        'Количество' => 'count',
-    );
 
     public function trimAll($row)
     {
@@ -337,8 +350,7 @@ class DefaultController extends CController
     public function actionError()
     {
         if ($error = Yii::app()->errorHandler->error) {
-            $this->pageTitle = Yii::t('base', 'Error') . ' ' . $error['code'];
-            echo iconv('utf8', 'cp1251', $error['message']);
+            echo iconv('utf8', 'cp1251', Yii::t('base', 'Error') . ' ' . $error['code'] . ' - ' . $error['message']);
         }
     }
 }

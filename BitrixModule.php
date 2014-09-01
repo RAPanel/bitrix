@@ -26,9 +26,12 @@ class BitrixModule extends CWebModule
 
     public function beforeControllerAction($controller, $action)
     {
-        foreach ($this->config as $key => $value)
-            $controller->$key = $value;
-        return parent::beforeControllerAction($controller,$action);
+        foreach ($this->config as $key => $value) {
+            if (!empty($controller->$key) && is_array($controller->$key) && is_array($value))
+                $controller->$key = CMap::mergeArray($controller->$key, $value);
+            else $controller->$key = $value;
+        }
+        return parent::beforeControllerAction($controller, $action);
     }
 
     public function fixPhpAuth()
