@@ -97,8 +97,8 @@ class DefaultController extends CController
 
     public function actionIndex($type = null, $mode = null, $filename = null, $dir = false)
     {
-        $IM = $this->importClass;
-        $IM::$module_name = $this->moduleUrl;
+        $IM = BaseImportModel::model($this->importClass);
+        $IM->module_name = $this->moduleUrl;
         if (empty($_GET) || !count($_GET)) {
             $url = explode('?', $_SERVER['REQUEST_URI']);
             $url = end($url);
@@ -186,7 +186,7 @@ class DefaultController extends CController
             // Возвращаем такой же ответ
             case 'success':
                 if (Yii::app()->user->isGuest && !$this->register()) break;
-                $IM::clearBase(null, 'photo');
+                $IM->clearBase(null, 'photo');
                 $this->result('success');
 //                mail($this->email, '1C FINISHED ' . $type, "REQUEST: " . print_r($_REQUEST, 1) . "\r\nSERVER: " . print_r($_SERVER, 1));
                 break;
@@ -210,7 +210,7 @@ class DefaultController extends CController
 
     public function parseXml($path)
     {
-        $IM = $this->importClass;
+        $IM = BaseImportModel::model($this->importClass);
         $this->_status = Yii::app()->user->getState(Yii::app()->request->requestUri);
         $xml = simplexml_load_file($path);
 
@@ -227,16 +227,16 @@ class DefaultController extends CController
 
         if (isset($xml->Каталог))
             if ($xml->Каталог['СодержитТолькоИзменения'] == 'false')
-                $IM::clearBase($this->_timestamp, 'item');
+                $IM->clearBase($this->_timestamp, 'item');
 
         if (isset($xml->ПакетПредложений))
             if ($xml->ПакетПредложений['СодержитТолькоИзменения'] == 'false')
-                $IM::clearBase($this->_timestamp, 'offer');
+                $IM->clearBase($this->_timestamp, 'offer');
     }
 
     public function addData($data, $type)
     {
-        $IM = $this->importClass;
+        $IM = BaseImportModel::model($this->importClass);
         $i = 0;
         $count = $this->_status['count'][$type];
         if (!$count) $this->_status['count'][$type] = $count = count($data);
@@ -245,7 +245,7 @@ class DefaultController extends CController
         foreach ($data as $row) {
             if ($this->_status[$type] - 1 >= $i++) continue;
             $row = $this->trimAll($row);
-            $IM::createElement($row, $type, false, $this->_timestamp);
+            $IM->createElement($row, $type, false, $this->_timestamp);
 
             $this->_status[$type] = $i;
             Yii::app()->user->setState(Yii::app()->request->requestUri, $this->_status);

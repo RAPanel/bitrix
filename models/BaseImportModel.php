@@ -8,15 +8,24 @@
  */
 class BaseImportModel
 {
-    static $module_name;
+    public $module_name;
 
-    public static function createElement($data, $type, $lastMod = false)
+    /**
+     * @param string $class
+     * @return BaseImportModel
+     */
+    static function model($class = __CLASS__)
     {
-        if (count($data)) return self::$type($data, $lastMod);
+        return new $class();
+    }
+
+    public function createElement($data, $type, $lastMod = false)
+    {
+        if (count($data)) return $this->$type($data, $lastMod);
         return false;
     }
 
-    public static function getPage($name, $value)
+    public function getPage($name, $value)
     {
         $sql = 'SELECT `id` FROM `character_varchar` cv JOIN `page` ON(`id`=`page_id`) WHERE `character_id`=:id AND `value`=:value';
         $params = array(
@@ -26,18 +35,18 @@ class BaseImportModel
         return Yii::app()->db->createCommand($sql)->queryScalar($params);
     }
 
-    public static function getId($value)
+    public function getId($value)
     {
         $sql = 'SELECT `id` FROM `exchange_1c` WHERE `external_id`=:value';
         return Yii::app()->db->createCommand($sql)->queryScalar(compact('value'));
     }
 
-    public static function addId($id, $external_id, $type = 'page')
+    public function addId($id, $external_id, $type = 'page')
     {
         return DAO::execute('exchange_1c', array(compact('id', 'type', 'external_id')), array('id', 'type'));
     }
 
-    public static function movePage($id, $parent_id)
+    public function movePage($id, $parent_id)
     {
         $sql = 'SELECT `id` FROM `page` WHERE `id`=:id AND `parent_id`=:parent_id';
         $params = compact('id', 'parent_id');
@@ -49,7 +58,7 @@ class BaseImportModel
         return true;
     }
 
-    public static function clearBase($time, $type)
+    public function clearBase($time, $type)
     {
         return false;
     }

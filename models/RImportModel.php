@@ -8,73 +8,77 @@
  */
 class RImportModel extends BaseImportModel
 {
-    public static function createElement($data, $type, $parent_id = false, $lastMod = false, $clear = false)
+
+    public function createElement($data, $type, $parent_id = false, $lastMod = false, $clear = false)
     {
         if (count($data)) switch ($type):
             case 'group':
-                if (!$id = self::getId($data['external_id']))
-                    if ($id = self::getPage('name', $data['name']))
-                        self::addId($id, $data['external_id']);
+                if (!$id = $this->getId($data['external_id']))
+                    if ($id = $this->getPage('name', $data['name']))
+                        $this->addId($id, $data['external_id']);
                     else
-                        $id = self::newPage(self::$module_name, 1, $data, $parent_id);
+                        $id = $this->newPage($this->module_name, 1, $data, $parent_id);
                 if ($id && $parent_id)
-                    self::movePage($id, $parent_id);
+                    $this->movePage($id, $parent_id);
                 if ($id && is_array($data['group']))
                     foreach ($data['group'] as $row)
-                        self::createElement($row, $type, $id, $lastMod, $clear);
+                        $this->createElement($row, $type, $id, $lastMod, $clear);
                 return $id;
             case 'prop':
-                if (!self::getId($data['external_id']))
-                    return self::newCharacter($data);
+                if (!$this->getId($data['external_id']))
+                    return $this->newCharacter($data);
                 return false;
             case 'item':
                 if (!$data['external_id']) return false;
-                elseif (!$id = self::getId($data['external_id']))
-                    if ($id = self::getPage('name', $data['name']))
-                        return self::addId($id, $data['external_id']);
+                elseif (!$id = $this->getId($data['external_id']))
+                    if ($id = $this->getPage('name', $data['name']))
+                        return $this->addId($id, $data['external_id']);
                     else
-                        return self::newPage(self::$module_name, 0, $data);
-                return self::editPage($id, $data, $lastMod);
+                        return $this->newPage($this->module_name, 0, $data);
+                return $this->editPage($id, $data, $lastMod);
             case 'priceType':
-                if (!self::getId($data['external_id']))
-                    return self::newPriceType($data);
+                if (!$this->getId($data['external_id']))
+                    return $this->newPriceType($data);
                 return false;
         endswitch;
         return parent::createElement($data, $type, $lastMod);
     }
 
-    public static function newPage($type, $category, $data, $parent_id = false)
+    public function newPage($type, $category, $data, $parent_id = false)
     {
         if (!$data['name']) return false;
         $model = new Page(Module::get($type));
         if ($category || $parent_id) $model->parent_id = $parent_id ? $parent_id : $model->findRoot()->id;
         $model->is_category = $category;
         $model->getCharacters();
-        $model->setAttributes(self::readyProduct($data), false);
+        $model->setAttributes($this->readyProduct($data), false);
         if ($model->parent_id && $model->save(false)) {
-            self::addId($model->id, $data['external_id'], $model->tableName());
-            self::newPhoto($data['image'], $model->id);
+            $this->addId($model->id, $data['external_id'], $model->tableName());
+            $this->newPhoto($data['image'], $model->id);
         } else {
-            echo 'error';
-            if (!$model->parent_id) echo 'Not found item parent in ' . Module::get($model->module_id);
+            echo 'error: ';
+            if (!$model->parent_id){
+//                echo 'Not found item parent in ' . Module::get($model->module_id);
+                return false;
+            }
             else CVarDumper::dump($model->errors);
             Yii::app()->end();
         }
         return $model->id;
     }
 
-    public static function editPage($id, $data, $lastMod)
+    public function editPage($id, $data, $lastMod)
     {
         $model = Page::model()->findByPk($id);
         $model->forceCharacters = true;
-        if (!$model) return self::newPage(self::$module_name, '0', $data);
+        if (!$model) return $this->newPage($this->module_name, '0', $data);
         if ($lastMod && $model->lastmod > $lastMod) return true;
-        self::newPhoto($data['image'], $model->id);
-        $model->setAttributes(self::readyProduct($data), false);
+        $this->newPhoto($data['image'], $model->id);
+        $model->setAttributes($this->readyProduct($data), false);
         return $model->save(false);
     }
 
-    public static function newCharacter($data)
+    public function newCharacter($data)
     {
         $model = Character::model()->findByAttributes(array('name' => $data['name']));
         if (!$model) {
@@ -87,10 +91,10 @@ class RImportModel extends BaseImportModel
         $model->position = 'additional';
         $model->num = 100;
         if ($model->save(false))
-            self::addId($model->id, $data['external_id'], $model->tableName());
+            $this->addId($model->id, $data['external_id'], $model->tableName());
 
         /** @var Module $module */
-        $module = Module::model()->findByPk(Module::get(self::$module_name));
+        $module = Module::model()->findByPk(Module::get($this->module_name));
         $config = $module->getConfig();
         $config['characters'][] = $model->url;
         $module->config = $config;
@@ -100,7 +104,7 @@ class RImportModel extends BaseImportModel
         return true;
     }
 
-    public static function newPriceType($data)
+    public function newPriceType($data)
     {
         $model = PriceType::model()->findByAttributes(array('name' => $data['name']));
         if (!$model) $model = new PriceType();
@@ -108,13 +112,13 @@ class RImportModel extends BaseImportModel
         $data['tax'] = $data['tax']['name'];
         $model->setAttributes($data, false);
         if ($model->save(false))
-            self::addId($model->id, $data['external_id'], $model->tableName());
+            $this->addId($model->id, $data['external_id'], $model->tableName());
         return true;
     }
 
-    public static function offer($data, $lastmod = false)
+    public function offer($data, $lastmod = false)
     {
-        if (!$id = self::getId($data['external_id'])) return false;
+        if (!$id = $this->getId($data['external_id'])) return false;
         $sql = 'SELECT `id` FROM `' . Price::getTable() . '` WHERE `page_id`=:id AND `lastmod`>FROM_UNIXTIME(:lastmod)';
         if ($lastmod && Yii::app()->db->createCommand($sql)->queryScalar(compact('id', 'lastmod'))) return false;
 
@@ -124,7 +128,7 @@ class RImportModel extends BaseImportModel
 
         $priceData = array();
         foreach ($data['price'] as $price) {
-            $type_id = self::getId($price['external_id']);
+            $type_id = $this->getId($price['external_id']);
             $priceData[] = array(
                 'id' => $prices[$type_id],
                 'page_id' => $id,
@@ -139,9 +143,9 @@ class RImportModel extends BaseImportModel
         return DAO::execute(Price::getTable(), $priceData, $update);
     }
 
-    public static function order($data, $lastmod = false)
+    public function order($data, $lastmod = false)
     {
-        if (self::getId($data['external_id'])) return;
+        if ($this->getId($data['external_id'])) return;
         $userData = $data['user'][0];
         $user = User::model()->findByAttributes(array('email' => $userData['email']));
         if (is_null($user)) {
@@ -162,7 +166,7 @@ class RImportModel extends BaseImportModel
 
         foreach ($data['item'] as $row) {
             /** @var PageBase $page */
-            $page = Product::model()->findByPk(self::getId($row['external_id']));
+            $page = Product::model()->findByPk($this->getId($row['external_id']));
             if (is_null($page)) $items[$row['external_id']] = array(
                 'external_id' => $row['external_id'],
                 'name' => $row['name'],
@@ -194,11 +198,11 @@ class RImportModel extends BaseImportModel
         $model->items_info = $items;
         $model->contact_info = $userData;
         if ($model->save()) {
-            self::addId($model->id, $data['external_id'], 'order');
+            $this->addId($model->id, $data['external_id'], 'order');
         } else print_r($model->errors);
     }
 
-    public static function newPhoto($name, $pageId)
+    public function newPhoto($name, $pageId)
     {
         if ($name && (file_exists($file = Yii::app()->params['parseDir'] . $name) || file_exists($file = Yii::getPathOfAlias('webroot.data._upload1c.base') . DIRECTORY_SEPARATOR . $name)) && is_file($file)) {
             $filename = basename($file);
@@ -226,19 +230,19 @@ class RImportModel extends BaseImportModel
         } else return false;
     }
 
-    public static function readyProduct($data)
+    public function readyProduct($data)
     {
         foreach ($data as $key => $val) {
             if ($key == 'content') {
                 $val = CHtml::tag('p', array(), nl2br(trim($val)));
             } elseif ($key == 'group') {
-                $data['parent_id'] = self::getId($val['external_id']);
+                $data['parent_id'] = $this->getId($val['external_id']);
                 if (!$data['parent_id']) unset($data['parent_id']);
                 $val = null;
             } elseif ($key == 'propValue') {
-                $c = Characters::getAttributesByModule(Module::get(self::$module_name));
+                $c = Characters::getAttributesByModule(Module::get($this->module_name));
                 foreach ($val as $row) {
-                    $data[$c[self::getId($row['external_id'])]] = $row['value'];
+                    $data[$c[$this->getId($row['external_id'])]] = $row['value'];
                 }
             } elseif ($key == 'likeProduct') {
                 $result = CHtml::listData($val, 'external_id', 'external_id');
@@ -256,12 +260,12 @@ class RImportModel extends BaseImportModel
         return $data;
     }
 
-    public static function clearBase($time, $type)
+    public function clearBase($time, $type)
     {
         switch ($type):
             case 'item':
                 $sql = 'DELETE FROM `page` WHERE `module_id`=:module_id AND `is_category`=0 AND `lastmod` < FROM_UNIXTIME(' . $time . ')';
-                Yii::app()->db->createCommand($sql)->execute(array('module_id' => Module::get(self::$module_name)));
+                Yii::app()->db->createCommand($sql)->execute(array('module_id' => Module::get($this->module_name)));
                 $sql = 'DELETE e FROM `exchange_1c` e LEFT OUTER JOIN `character`c ON(c.id=e.id) WHERE e.type="character" AND ISNULL(c.id)';
                 Yii::app()->db->createCommand($sql)->execute();
                 $sql = 'DELETE e FROM `exchange_1c` e LEFT OUTER JOIN page p ON(p.id=e.id) WHERE e.type="page"  AND ISNULL(p.id)';
