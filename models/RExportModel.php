@@ -26,7 +26,6 @@ class RExportModel extends BaseExportModel
             if (!is_array($row->items_info)) continue;
             $contacts = $row->contact_info;
             if (empty($contacts['inn'])) $contacts['inn'] = $this->default['inn'];
-            $row->contact_info = $contacts;
 
             $priceType = array();
 
@@ -41,13 +40,13 @@ class RExportModel extends BaseExportModel
             $document->addChild('Сумма', $row->total);
             $user = $document->addChild('Контрагенты')->addChild('Контрагент');
             $user->addChild('Ид', 'User' . $row->user_id);
-            $user->addChild('ЛогинНаСайте', $row->user->email);
-            $user->addChild('Наименование', $row->contact_info['username'] ? $row->contact_info['username'] : $row->contact_info['name']);
-            $user->addChild('ПолноеНаименование', $row->contact_info['username'] ? $row->contact_info['username'] : $row->contact_info['name']);
-            $row->contact_info = CMap::mergeArray($row->contact_info, (array)$row->user->company->characters);
-            $user->addChild('ИНН', $row->contact_info['inn']);
+            if(isset($row->user)) $user->addChild('ЛогинНаСайте', $row->user->email);
+            $user->addChild('Наименование', $contacts['username'] ? $contacts['username'] : $contacts['name']);
+            $user->addChild('ПолноеНаименование', $contacts['username'] ? $contacts['username'] : $contacts['name']);
+            if(isset($row->user)) $contacts = CMap::mergeArray($contacts, (array)$row->user->company->characters);
+            $user->addChild('ИНН', $contacts['inn']);
             $user->addChild('Роль', 'Покупатель');
-            if ($row->contact_info['type'])
+            if ($contacts['type'])
                 $type = $user->addChild('РеквизитыЮрЛица');
             else
                 $type = $user->addChild('РеквизитыФизЛица');
@@ -57,7 +56,7 @@ class RExportModel extends BaseExportModel
                          'inn' => 'ИНН',
                          'kpp' => 'КПП',
                      ) as $key => $val)
-                if ($row->contact_info[$key]) $type->addChild($val, $row->contact_info[$key]);
+                if ($contacts[$key]) $type->addChild($val, $contacts[$key]);
 
             if (count($row->delivery_info)) {
                 $address = $user->addChild('АдресРегистрации');
@@ -77,7 +76,7 @@ class RExportModel extends BaseExportModel
                          'email' => 'Почта',
                          'phone' => 'Телефон',
                      ) as $key => $val)
-                if ($row->contact_info[$key]) self::addData($contact, $val, $row->contact_info[$key], 'Контакт', 'Тип');
+                if ($contacts[$key]) self::addData($contact, $val, $contacts[$key], 'Контакт', 'Тип');
             $user->addChild('Роль', 'Покупатель');
             $user->addChild('ИдентификацияПоИНН', true);
             $items = $document->addChild('Товары');

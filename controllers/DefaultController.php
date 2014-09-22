@@ -179,8 +179,8 @@ class DefaultController extends CController
             // Отдаем файл с заказами
             case 'query':
                 if (Yii::app()->user->isGuest && !$this->register()) break;
-                $EM = $this->exportClass;
-                if (method_exists($EM, $type)) $EM::$type();
+                $EM = new $this->exportClass;
+                if (method_exists($EM, $type)) $EM->$type();
                 break;
 
             // Возвращаем такой же ответ
