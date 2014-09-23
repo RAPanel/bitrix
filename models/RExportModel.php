@@ -12,7 +12,7 @@ class RExportModel extends BaseExportModel
         'inn' => 0,
     );
 
-    public function order()
+    public function sale()
     {
         $model = Order::model()->findAll(array(
             'condition' => 't.status_id NOT IN(9,10,999) and t.id>0',
