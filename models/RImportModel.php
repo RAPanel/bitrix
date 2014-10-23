@@ -52,16 +52,14 @@ class RImportModel extends BaseImportModel
         $model->is_category = $category;
         $model->getCharacters();
         $model->setAttributes($this->readyProduct($data), false);
-        if ($model->parent_id && $model->save(false)) {
+        if(!$model->parent_id) $model->parent_id = $model->findRoot()->id;
+        if ($model->save(false)) {
             $this->addId($model->id, $data['external_id'], $model->tableName());
             $this->newPhoto($data['image'], $model->id);
         } else {
             echo 'error: ';
-            if (!$model->parent_id){
-//                echo 'Not found item parent in ' . Module::get($model->module_id);
-                return false;
-            }
-            else CVarDumper::dump($model->errors);
+            CVarDumper::dump($model->errors);
+            echo "\r\n";
             Yii::app()->end();
         }
         return $model->id;
