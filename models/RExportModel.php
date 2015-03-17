@@ -12,6 +12,12 @@ class RExportModel extends BaseExportModel
         'inn' => 0,
     );
 
+    public function getId($value)
+    {
+        $sql = 'SELECT `external_id` FROM `exchange_1c` WHERE `id`=:value';
+        return Yii::app()->db->createCommand($sql)->queryScalar(compact('value'));
+    }
+
     public function sale()
     {
         $model = Order::model()->findAll(array(
@@ -85,8 +91,8 @@ class RExportModel extends BaseExportModel
                 $type = Yii::app()->db->createCommand('SELECT `name` from price_type WHERE id=:id')->queryScalar(array('id' => ImportModel::getId($val['priceType'])));
                 $priceType[$type] = $type;
                 $item = $items->addChild('Товар');
-                $item->addChild('Ид', $val['external_id']);
-                $item->addChild('ИдКаталога', $val['parent_id']);
+                $item->addChild('Ид', $this->getId($val['id']));
+                if($val['parent_id']) $item->addChild('ИдКаталога', $this->getId($val['parent_id']));
                 $item->addChild('Наименование', str_replace('¼', '', CHtml::encode($val['name'])));
                 $el = $item->addChild('БазоваяЕдиница ', 'шт');
                 $el->addAttribute('Код', '796');
@@ -114,6 +120,11 @@ class RExportModel extends BaseExportModel
                 'Дата изменения статуса' => $row->lastmod,
                 'Сайт' => '[s2] Интернет-магазин (' . Yii::app()->name . ')',
             ));
+
+            if ($row->created < (time() - 60 * 60 * 24 * 7 * 2)) {
+                $row->status_id = 999;
+                $row->save(0, array('status_id'));
+            }
         endforeach;
 
         self::printData($xml);

@@ -11,6 +11,8 @@ class DefaultController extends CController
     /** @var bool */
     public $clearDir = false;
     /** @var bool */
+    public $maxDirTime = 86400;
+    /** @var bool */
     public $zip = false;
     /** @var bool */
     public $adminNotify = false;
@@ -130,6 +132,11 @@ class DefaultController extends CController
                 if (Yii::app()->user->isGuest && !$this->register()) break;
 
                 if ($this->clearDir) CFileHelper::removeDirectory($this->baseDir);
+                elseif ($this->maxDirTime > 0) foreach (scandir($this->baseDir) as $dir) if (in_array($dir, array('.', '..'))) {
+                    $dir = $this->baseDir . DIRECTORY_SEPARATOR . $dir;
+                    $dirTime = filemtime($dir . DIRECTORY_SEPARATOR . '.');
+                    if ($dirTime < time() - $this->maxDirTime) CFileHelper::removeDirectory($dir);
+                }
 
                 $dir = $this->baseDir . date('Y-m-d_H-i_') . Yii::app()->user->id . DIRECTORY_SEPARATOR;
                 Yii::app()->user->setState('dir', $dir);
